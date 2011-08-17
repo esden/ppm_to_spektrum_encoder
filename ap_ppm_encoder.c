@@ -95,8 +95,8 @@ a different avr type cpu having at least 2k bytes of flash memory.
 #define RC_SETUP_PIN_REG              CONCAT2(PIN,  RC_SETUP_PORT)
 
 
-#if RC_PPM_GEN_CHANNELS > 8
-#error PPM generator max number of channels is 8 
+#if RC_PPM_GEN_CHANNELS > 6
+#error PPM generator max number of channels is 6 
 #endif
 #if RC_PPM_GEN_CHANNELS == 0
 #error PPM generator channels cannot be zero!
@@ -179,6 +179,8 @@ a different avr type cpu having at least 2k bytes of flash memory.
 #error NO SUITABLE PRESCALER FOR TIMER1 FOUND!
 
 #endif
+
+#define RC_RX_SKIP_CHANNELS 2
 
 /* Now that the timer prescalers are known the conversion of microseconds to timer values follows */
 #define RC_SERVO_CENTER_PW_VAL          ((((F_CPU/1000) * RC_SERVO_CENTER_PW )/1000)/TIMER0_PRESCALER) 
@@ -446,7 +448,7 @@ do{
         x=0;
         while(timer0.timer0[1] <= RC_MAX_TIMEOUT_VAL )
             {
-              if( (RC_SERVO_PORT_PIN_REG & (1<<(RC_RX_READY_CHANNEL-1))) ) { x=timer0.timer0[1]; }
+              if( (RC_SERVO_PORT_PIN_REG & (1<<((RC_RX_READY_CHANNEL+RC_RX_SKIP_CHANNELS-1))) ) { x=timer0.timer0[1]; }
               if( (timer0.timer0[1] - x) >= RC_PULSE_TIMEOUT_VAL ){ servo_connected = 1; break; }
             }
  
@@ -483,7 +485,7 @@ do{
         x=0;
         while(timer0.timer0[1] <= RC_MAX_TIMEOUT_VAL )
             {
-              if(RC_SERVO_PORT_PIN_REG & (1<<channel)) { x=timer0.timer0[1]; }
+              if(RC_SERVO_PORT_PIN_REG & (1<<(channel+RC_RX_SKIP_CHANNELS))) { x=timer0.timer0[1]; }
               if( (timer0.timer0[1] - x) >= RC_PULSE_TIMEOUT_VAL ){ servo_connected = 1; break; }
             }
         if(servo_connected >= 1){ break; } 
@@ -535,10 +537,10 @@ RESET_START_TIMER0();
                 x=0;
                 while(timer0.timer0[1] <= RC_MAX_TIMEOUT_VAL )
                     {
-                      if(RC_SERVO_PORT_PIN_REG & (1<<channel)) { x=timer0.timer0[1]; }
+                      if(RC_SERVO_PORT_PIN_REG & (1<<(channel+RC_RX_SKIP_CHANNELS))) { x=timer0.timer0[1]; }
                       if( (timer0.timer0[1] - x) >= RC_PULSE_TIMEOUT_VAL ){ servo_connected++; break; }
                     }
-                if(servo_connected >= 3){ channel_mask |= (1<<channel); connected_channels++; break; } 
+                if(servo_connected >= 3){ channel_mask |= (1<<(channel+RC_RX_SKIP_CHANNELS)); connected_channels++; break; } 
              }
         } 
 #if defined(RC_RX_READY_CHANNEL) && RC_RX_READY_CHANNEL > 0
@@ -546,12 +548,12 @@ RESET_START_TIMER0();
 connected_channels = 0;
 for(channel=0; channel < RC_SERVO_INPUT_CHANNELS; channel++)
   {
-    if(channel_mask & (1<<channel) )
+    if(channel_mask & (1<<(channel+RC_RX_SKIP_CHANNELS)) )
      { 
         pw=get_channel_pw(channel);
         if(pw < RC_SERVO_MIN_PW_VAL || pw > RC_SERVO_MAX_PW_VAL)
          {
-            channel_mask &= (~(1<<channel));
+	   channel_mask &= (~(1<<(channel+RC_RX_SKIP_CHANNELS)));
          }else{ connected_channels++; }
      }
   }
@@ -700,7 +702,7 @@ wdt_reset();
 // First we must disable the pin interrupt. 
 RC_PIN_INT_EN_REG &= (~(1<<RC_PIN_INT_EN_BIT));
 //Now we must load the pin interrupt mask register.
-RC_PIN_INT_MASK_REG = (1<<pin);
+RC_PIN_INT_MASK_REG = (1<<(pin+RC_RX_SKIP_CHANNELS));
 //Clear any pin interrupt flag set. 
 RC_PIN_INT_FLAG_REG |= (1<<RC_PIN_INT_FLAG_BIT);
 // Clear the pin interrupt ISR detection variable
@@ -721,7 +723,7 @@ while(1)
                  
          }while( pin_interrupt_detected == 0 );
          pin_interrupt_detected = 0; 
-         if( RC_SERVO_PORT_PIN_REG & (1<<pin) ) /* if the pin is high then give it a time stamp */ 
+         if( RC_SERVO_PORT_PIN_REG & (1<<(pin+RC_RX_SKIP_CHANNELS)) ) /* if the pin is high then give it a time stamp */ 
           {
              pw = isr_timer0_16;
              pw_measurement_started = 1;        /* signal that this channel got it's timer stamp.*/
@@ -779,9 +781,9 @@ if(setup_mode)
      success = 0;
      if(channels_in_use > 1 )
       {
-         if( channel_mask & (1<<(RC_LOST_CHANNEL - 1)) )
+	if( channel_mask & (1<<((RC_LOST_CHANNEL+RC_RX_SKIP_CHANNELS) - 1)) )
           { 
-             rc_lost_channel = (RC_LOST_CHANNEL - 1); 
+	    rc_lost_channel = ((RC_LOST_CHANNEL+RC_RX_SKIP_CHANNELS) - 1); 
              for(x=0; x < (sizeof(rc_lost_channel_e)/sizeof(char)); x++)
                { 
                   eeprom_write_byte(&rc_lost_channel_e[x], rc_lost_channel);
@@ -793,7 +795,7 @@ if(setup_mode)
              {
                for(x=0; x < RC_SERVO_INPUT_CHANNELS; x++)
                  {
-                   if(channel_mask & (1<<x))
+                   if(channel_mask & (1<<(x+RC_RX_SKIP_CHANNELS)))
                     { 
                        rc_lost_channel = x;
                        for(x=0; x < (sizeof(rc_lost_channel_e)/sizeof(char)); x++)
@@ -1082,7 +1084,7 @@ while(1)
                  
                 }while( pin_interrupt_detected == 0 );
               x=0;
-              y=1;
+              y=(1<<RC_RX_SKIP_CHANNELS);
               //Only pins that changed their state will be tested for a high or low level
               pin_reg_buffer0 = (RC_SERVO_PORT_PIN_REG & channel_mask_buffer);
               pin_interrupt_detected = 0;
