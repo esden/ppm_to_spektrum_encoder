@@ -94,6 +94,8 @@ a different avr type cpu having at least 2k bytes of flash memory.
 #define RC_SETUP_DDR_REG              CONCAT2(DDR,  RC_SETUP_PORT)
 #define RC_SETUP_PIN_REG              CONCAT2(PIN,  RC_SETUP_PORT)
 
+/* Define how many channels we would like to skip */
+#define RC_RX_SKIP_CHANNELS 2
 
 #if RC_PPM_GEN_CHANNELS > 6
 #error PPM generator max number of channels is 6
@@ -180,8 +182,6 @@ a different avr type cpu having at least 2k bytes of flash memory.
 
 #endif
 
-#define RC_RX_SKIP_CHANNELS 2
-
 /* Now that the timer prescalers are known the conversion of microseconds to timer values follows */
 #define RC_SERVO_CENTER_PW_VAL          ((((F_CPU/1000) * RC_SERVO_CENTER_PW )/1000)/TIMER0_PRESCALER)
 #define RC_SERVO_MIN_PW_VAL             ((((F_CPU/1000) * RC_SERVO_MIN_PW)/1000)/TIMER0_PRESCALER)
@@ -252,6 +252,10 @@ a different avr type cpu having at least 2k bytes of flash memory.
 #error RC_REDUCE_LATENCY can be 0 or 1
 #endif
 
+/* Usart settings */
+#define UART_BAUD_RATE 38400
+//#define UART_BAUD_RATE 115200
+#define UART_BAUD_SELECT ((F_CPU/UART_BAUD_RATE/16)-1)
 
 /********************************************************************************************************/
 /*                                   TYPE DEFINITIONS                                                   */
@@ -380,6 +384,15 @@ RC_SETUP_PORT_OUT_REG |= (1<<RC_SETUP_PIN);
 /* configure the servo pins as inputs and activate their pull up resistors for noise reduction. */
 RC_SERVO_PORT_DDR_REG = 0;
 RC_SERVO_PORT_OUT_REG = 0xFF;
+
+/* Enable USART subsystem */
+UCSR0B=(0<<RXCIE0)|(0<<TXCIE0)|(0<<RXEN0)|(1<<TXEN0);
+
+/* Setup baud rate */
+UBRR0L=((unsigned char)UART_BAUD_SELECT);
+
+/* configure second pin to be output for serial out */
+RC_SERVO_PORT_DDR_REG |= (1 << 1); // TX
 
 isr_channel_number = RC_PPM_GEN_CHANNELS;
 rc_lost_channel = (RC_LOST_CHANNEL-1);
@@ -1216,7 +1229,17 @@ This way the OCR1B interrupt can be delayed as needed without any loss of timing
 ISR(TIMER1_COMPB_vect)
 {
 asm("sei");
+
+/* Send low pw over usart */
+ while(!(UCSR0A&(1<<UDRE0)))
+   asm("nop");
+ UDR0 = (isr_channel_pw[isr_channel_number] >> 8);
+ while(!(UCSR0A&(1<<UDRE0)))
+   asm("nop");
+ UDR0 = isr_channel_pw[isr_channel_number];
+
 #if RC_CONSTANT_PPM_FRAME_TIME == 1
+
 isr_channel_number++;
 if( isr_channel_number >= (RC_PPM_GEN_CHANNELS + 1) ) {isr_channel_number = 0; reset_pw = RC_PPM_FRAME_TIMER_VAL; }
 
@@ -1234,6 +1257,7 @@ if(isr_channel_number < RC_PPM_GEN_CHANNELS)
 
 isr_channel_number++;
 if( isr_channel_number >= (RC_PPM_GEN_CHANNELS + 1) ) {isr_channel_number = 0; }
+
  RC_TIMER1_COMP1_REG = isr_channel_pw[isr_channel_number];
 
 #endif
