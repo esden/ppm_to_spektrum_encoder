@@ -62,7 +62,7 @@
 #define RC_PIN_INT_FLAG_BIT           PCIF2
 #define RC_PIN_INT_MASK_REG           PCMSK2
 
-#define RC_SERVO_INPUT_CHANNELS       8
+#define RC_SERVO_INPUT_CHANNELS       6
 
 
 /*
