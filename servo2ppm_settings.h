@@ -22,7 +22,7 @@ is not defined in the makefile.
 */
 
 #ifndef F_CPU
-#define F_CPU                         8000000UL        /* CPU CLOCK FREQUENCY */
+#define F_CPU                         16000000UL        /* CPU CLOCK FREQUENCY */
 #endif
 /*
 Those values are the failsafe servo values and the values for the non used channels
