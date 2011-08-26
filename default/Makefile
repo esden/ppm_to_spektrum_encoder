@@ -15,7 +15,7 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99     -DF_CPU=16000000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
+CFLAGS += -Wall -gdwarf-2 -std=gnu99     -DF_CPU=16000000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -I..
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 
 ## Assembly specific flags
@@ -37,7 +37,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = ap_ppm_encoder.o 
+OBJECTS = ap_ppm_encoder.o spektrum_serial_out.o
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -47,6 +47,8 @@ all: $(TARGET) ap_ppm_encoder.hex ap_ppm_encoder.eep ap_ppm_encoder.lss size
 
 ## Compile
 ap_ppm_encoder.o: ../ap_ppm_encoder.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+spektrum_serial_out.o: ../spektrum_serial_out.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link

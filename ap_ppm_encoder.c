@@ -22,6 +22,7 @@
 #include <avr/eeprom.h>
 #include <inttypes.h>
 #include "servo2ppm_settings.h"
+#include "spektrum_serial_out.h"
 
 
 
@@ -252,11 +253,6 @@ a different avr type cpu having at least 2k bytes of flash memory.
 #error RC_REDUCE_LATENCY can be 0 or 1
 #endif
 
-/* Usart settings */
-#define UART_BAUD_RATE 38400
-//#define UART_BAUD_RATE 115200
-#define UART_BAUD_SELECT ((F_CPU/UART_BAUD_RATE/16)-1)
-
 /********************************************************************************************************/
 /*                                   TYPE DEFINITIONS                                                   */
 /********************************************************************************************************/
@@ -385,15 +381,6 @@ RC_SETUP_PORT_OUT_REG |= (1<<RC_SETUP_PIN);
 RC_SERVO_PORT_DDR_REG = 0;
 RC_SERVO_PORT_OUT_REG = 0xFF;
 
-/* Enable USART subsystem */
-UCSR0B=(0<<RXCIE0)|(0<<TXCIE0)|(0<<RXEN0)|(1<<TXEN0);
-
-/* Setup baud rate */
-UBRR0L=((unsigned char)UART_BAUD_SELECT);
-
-/* configure second pin to be output for serial out */
-RC_SERVO_PORT_DDR_REG |= (1 << 1); // TX
-
 isr_channel_number = RC_PPM_GEN_CHANNELS;
 rc_lost_channel = (RC_LOST_CHANNEL-1);
 ppm_off_threshold = RC_PPM_OFF_THRESHOLD_VAL;
@@ -434,6 +421,8 @@ of the OCR1X pins.
 */
 //RC_PPM_PORT_OUT_REG &= (~(1<<RC_PPM_PIN));
 RC_PPM_PORT_DDR_REG |= (1<<RC_PPM_PIN);
+
+sso_init();
 
 return;
 }
@@ -1159,7 +1148,10 @@ while(1)
 PPM_CONTROL:
 
        led_counter++;
-       if( led_counter >= led_frequency ){ led_counter = 0; TOGGLE_LED();  }
+       if( led_counter >= led_frequency ){ led_counter = 0; TOGGLE_LED(); }
+
+       /* Sending spektrum data every frame, that is every 23.5ms which is close to the 22ms of the original, should (TM) work. */
+       sso_send(isr_channel_pw);
 
 //We need 'RC_MAX_BAD_PPM_FRAMES" consecutive readings in order to change the PPM generator's status.
        if( channel_mask_buffer == 0  ) //IF ALL CHANNELS HAVE BEEN MEASURED...
@@ -1229,14 +1221,6 @@ This way the OCR1B interrupt can be delayed as needed without any loss of timing
 ISR(TIMER1_COMPB_vect)
 {
 asm("sei");
-
-/* Send low pw over usart */
- while(!(UCSR0A&(1<<UDRE0)))
-   asm("nop");
- UDR0 = (isr_channel_pw[isr_channel_number] >> 8);
- while(!(UCSR0A&(1<<UDRE0)))
-   asm("nop");
- UDR0 = isr_channel_pw[isr_channel_number];
 
 #if RC_CONSTANT_PPM_FRAME_TIME == 1
 
