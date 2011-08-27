@@ -1151,7 +1151,9 @@ PPM_CONTROL:
        if( led_counter >= led_frequency ){ led_counter = 0; TOGGLE_LED(); }
 
        /* Sending spektrum data every frame, that is every 23.5ms which is close to the 22ms of the original, should (TM) work. */
-       sso_send(isr_channel_pw);
+       if (servo_signals_lost == 0) {
+         sso_send(isr_channel_pw);
+       }
 
 //We need 'RC_MAX_BAD_PPM_FRAMES" consecutive readings in order to change the PPM generator's status.
        if( channel_mask_buffer == 0  ) //IF ALL CHANNELS HAVE BEEN MEASURED...
