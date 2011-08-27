@@ -1,0 +1,1 @@
+This is a small board with an Atmega that converts standard servo channel data in PPM format to the spektrum satellite serial protocol. To be a drop in replacement for spektrum satellites.
