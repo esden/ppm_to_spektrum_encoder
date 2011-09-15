@@ -1,0 +1,11 @@
+
+Row {
+  Col {
+    ppm_to_spektrum
+    ppm_to_spektrum
+  }
+  Col {
+    ppm_to_spektrum
+    ppm_to_spektrum
+  }
+}
